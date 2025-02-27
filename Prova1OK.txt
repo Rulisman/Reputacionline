@@ -1,0 +1,63 @@
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import re
+import logging
+
+# Configuración del logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Configuración del navegador
+options = webdriver.ChromeOptions()
+options.add_argument("--headless")  # Ejecutar sin abrir ventana del navegador
+options.add_argument("--no-sandbox")
+options.add_argument("--disable-dev-shm-usage")
+
+# Iniciar el navegador con WebDriver Manager
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+
+try:
+    # URL del camping ANWB
+    url = "https://www.anwbcamping.nl/campings/camping-playa-brava"
+    driver.get(url)
+
+    # Espera explícita para que los elementos se carguen
+    try:
+        # Esperar a que la nota media esté visible en la página
+        rating_element = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "span.css-1qthp5w"))
+        )
+        rating = rating_element.text.strip()
+    except Exception as e:
+        rating = "N/A"
+        logger.error(f"Error al obtener la nota media: {e}")
+
+    try:
+        # Esperar a que el número de comentarios esté visible en la página
+        comments_header = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "div#campsite-reviews h4"))
+        )
+        comments_text = comments_header.text.strip()
+
+        # Usar una expresión regular para extraer el número de comentarios
+        comments_match = re.search(r"\((\d+)\s*Beoordelingen\)", comments_text)
+        if comments_match:
+            comments = comments_match.group(1)  # Extraer el número de comentarios
+        else:
+            comments = "N/A"
+            logger.error("No se pudo extraer el número de comentarios del texto.")
+    except Exception as e:
+        comments = "N/A"
+        logger.error(f"Error al obtener el número de comentarios: {e}")
+
+    # Imprimir los resultados
+    logger.info(f"Nota media: {rating}")
+    logger.info(f"Número de comentarios: {comments}")
+
+finally:
+    # Cerrar el navegador
+    driver.quit()
